@@ -67,3 +67,54 @@ export async function getConfigsByUserId(userId: string) {
     .where(eq(configs.userId, userId))
     .orderBy(configs.createdAt);
 }
+
+export type ProfileData = {
+  id: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+  configCount: number;
+  totalUpvotes: number;
+  configs: Array<{
+    id: string;
+    title: string;
+    description: string;
+    upvoteCount: number;
+    createdAt: Date;
+  }>;
+};
+
+export async function getUserByHandle(
+  handle: string,
+): Promise<ProfileData | null> {
+  const db = getDb();
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.name, handle))
+    .limit(1);
+
+  if (!user) return null;
+
+  const userConfigs = await getConfigsByUserId(user.id);
+  const totalUpvotes = userConfigs.reduce(
+    (sum, c) => sum + c.upvoteCount,
+    0,
+  );
+
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    image: user.image,
+    configCount: userConfigs.length,
+    totalUpvotes,
+    configs: userConfigs.map((c) => ({
+      id: c.id,
+      title: c.title,
+      description: c.description ?? "",
+      upvoteCount: c.upvoteCount,
+      createdAt: c.createdAt,
+    })),
+  };
+}
