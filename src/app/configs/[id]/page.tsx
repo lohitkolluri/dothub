@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { VoteWidget } from "@/components/config/vote-widget";
+import { ThreadedComments } from "@/components/config/threaded-comments";
 import { getConfigById } from "@/lib/queries";
 
 interface Props {
@@ -308,20 +309,13 @@ export default async function ConfigDetailPage({ params }: Props) {
           </aside>
         </div>
 
-        {/* ─── Below the fold: comments placeholder ───────── */}
-        <section
-          id="comments"
-          className="mt-16 border-t border-border pt-10 max-w-3xl"
-        >
+        {/* ─── Below the fold: comments ──────────────────── */}
+        <section id="comments" className="mt-16 border-t border-border pt-10 max-w-3xl">
           <h2 className="mb-6 text-lg font-semibold text-foreground flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-muted-fg" />
             Discussion
           </h2>
-          <div className="flex flex-col items-center justify-center py-16 text-center rounded-2xl border border-dashed border-border bg-surface/30">
-            <p className="text-sm text-muted-fg">
-              Comments are coming soon.
-            </p>
-          </div>
+          <ThreadedComments configId={config.id} />
         </section>
       </div>
     </main>

@@ -109,6 +109,23 @@ export const tags = pgTable("tags", {
   slug: text("slug").notNull().unique(),
 });
 
+/* ─── Comments ─────────────────────────────────────────────── */
+
+export const comments = pgTable("comments", {
+  id: text("id").primaryKey(),
+  configId: text("config_id")
+    .notNull()
+    .references(() => configs.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  parentId: text("parent_id"),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
 export const configTags = pgTable(
   "config_tags",
   {
