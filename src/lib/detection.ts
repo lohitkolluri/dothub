@@ -1,5 +1,20 @@
 // DotHub — Tool auto-detection engine
 import { fetchWithTimeout } from '@/lib/fetch-with-timeout';
+
+// Simple in-memory cache for GitHub API results (TTL: 5 minutes)
+const cache = new Map<string, { data: { files: string[]; error?: string }; expires: number }>();
+const CACHE_TTL = 5 * 60 * 1000;
+
+function getCached(key: string) {
+  const entry = cache.get(key);
+  if (entry && entry.expires > Date.now()) return entry.data;
+  cache.delete(key);
+  return null;
+}
+
+function setCache(key: string, data: { files: string[]; error?: string }) {
+  cache.set(key, { data, expires: Date.now() + CACHE_TTL });
+}
 // Pure, deterministic, NO AI tokens burned.
 // Maps file paths to known developer tools with categories and icons.
 
@@ -580,13 +595,21 @@ export async function fetchGitHubFileList(
   }
 
   const [, owner, repoName] = match;
+  const cacheKey = `tree:${owner}/${repoName}`;
+
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
+
   const apiUrl = `https://api.github.com/repos/${owner}/${repoName}/git/trees/HEAD?recursive=1`;
+
+  const headers: Record<string, string> = { Accept: "application/vnd.github+json" };
+  const token = process.env.GITHUB_TOKEN;
+  if (token) headers.Authorization = `Bearer ${token}`;
 
   try {
     const res = await fetchWithTimeout(apiUrl, {
       timeout: 10000,
-      headers: { Accept: "application/vnd.github+json" },
-      // Optional: `Authorization: Bearer ${process.env.GITHUB_TOKEN}` for higher rate limits
+      headers,
     });
 
     if (!res.ok) {
@@ -605,7 +628,9 @@ export async function fetchGitHubFileList(
       }
     }
 
-    return { files };
+    const result = { files };
+    setCache(cacheKey, result);
+    return result;
   } catch (err) {
     return { files: [], error: "Network error fetching repository data." };
   }

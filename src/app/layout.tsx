@@ -39,6 +39,7 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${sora.variable} ${geistMono.variable} h-full antialiased`}
+      data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
       <body className="flex h-full flex-col">

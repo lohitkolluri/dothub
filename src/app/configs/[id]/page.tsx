@@ -7,15 +7,30 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { VoteWidget } from "@/components/config/vote-widget";
 import { ThreadedComments } from "@/components/config/threaded-comments";
+import { ConfigTabs } from "@/components/config/config-tabs";
 import { ScreenshotViewer } from "@/components/config/screenshot-viewer";
 import { FileActions } from "@/components/config/file-actions";
+import { FileTree } from "@/components/config/file-tree";
 import { RaccoonIcon } from "@/components/ui/logo";
 import { getConfigById } from "@/lib/queries";
 import { fetchGitHubFileList } from "@/lib/detection";
 import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
+function FileExplorer({ files }: { files: { path: string }[] }) {
+  "use client";
+  const filePaths = files.map((f) => f.path);
+
+  const handleFileSelect = (path: string) => {
+    const el = document.querySelector(`[data-file-path="${path}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  return <FileTree files={filePaths} onFileSelect={handleFileSelect} />;
+}
+
 interface Props {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -159,10 +174,12 @@ function FilePreview({
       <div className="space-y-6">
         {files.map((file) => {
           const lines = file.content.split("\n");
+          const numberedLines = lines.map((content, idx) => ({ num: idx + 1, content }));
           const truncated = file.truncated || file.content.endsWith("...\n...") || file.content.endsWith("...");
           return (
             <div
               key={file.path}
+              data-file-path={file.path}
               className="overflow-hidden rounded-xl border border-border bg-surface"
             >
               {/* Header bar */}
@@ -201,13 +218,13 @@ function FilePreview({
 
               {/* Code: single unified scroll container */}
               <div className="flex overflow-auto max-h-96">
-                <div className="select-none border-r border-border bg-surface-hover/50 py-4 text-right shrink-0" style={{ minWidth: "3rem" }}>
-                  {lines.map((_, i) => (
+                <div className="sticky left-0 z-10 select-none border-r border-border bg-surface-hover/50 py-4 text-right shrink-0" style={{ minWidth: "3rem" }}>
+                  {numberedLines.map((line) => (
                     <div
-                      key={`${file.path}-${i}`}
+                      key={`${file.path}:${line.num}`}
                       className="pr-3 text-[11px] leading-[1.65] text-muted-fg/40 tabular-nums"
                     >
-                      {i + 1}
+                      {line.num}
                     </div>
                   ))}
                 </div>
@@ -257,8 +274,9 @@ function InstallBlock({
         Quick Install
       </h2>
       <div className="overflow-hidden rounded-xl border border-border bg-surface">
-        <div className="border-b border-border bg-surface-hover px-4 py-2">
+        <div className="flex items-center justify-between border-b border-border bg-surface-hover px-4 py-2">
           <span className="font-mono text-xs text-muted-fg">bash</span>
+          <FileActions content={cmd} filename="install.sh" />
         </div>
         <pre className="overflow-x-auto p-4 text-sm">
           <code className="font-mono text-foreground">{cmd}</code>
@@ -269,8 +287,10 @@ function InstallBlock({
 }
 
 /* ─── Page ───────────────────────────────────────────────── */
-export default async function ConfigDetailPage({ params }: Props) {
+export default async function ConfigDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const { tab } = await searchParams;
+  const isDiscussion = tab === "discussion";
   const config = await getConfigById(id);
 
   if (!config) notFound();
@@ -350,7 +370,7 @@ export default async function ConfigDetailPage({ params }: Props) {
     <main className="min-h-screen pb-20">
       <div className="mx-auto max-w-5xl px-4 pt-6 sm:px-6 lg:px-8">
         {/* ─── Breadcrumb ──────────────────────────────── */}
-        <div className="mb-4 flex items-center gap-2 text-sm text-muted-fg">
+        <div className="mb-2 flex items-center gap-2 text-sm text-muted-fg">
           <Link href="/" className="hover:text-foreground transition-colors">
             Gallery
           </Link>
@@ -358,164 +378,155 @@ export default async function ConfigDetailPage({ params }: Props) {
           <span className="truncate text-foreground">{config.title}</span>
         </div>
 
-        <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
-          {/* ── Left column ────────────────────────────── */}
-          <div>
-            {/* Screenshot / fallback preview */}
-            <div className="mb-8 overflow-hidden rounded-2xl border border-border">
-              {config.screenshotUrl ? (
-                <ScreenshotViewer src={config.screenshotUrl} alt={config.title} />
-              ) : (
-                <div className="bg-gradient-to-br from-accent/10 via-surface to-accent-muted/20">
-                  <div className="flex flex-col items-center justify-center gap-4 px-8 py-14 text-center">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/10">
-                      <RaccoonIcon size={36} className="text-accent/60" />
+{/* Tab bar */}
+        <ConfigTabs configId={config.id} />
+
+        {isDiscussion ? (
+          /* Discussion tab: full-width comments */
+          <section className="max-w-3xl">
+            <h2 className="mb-6 text-lg font-semibold text-foreground flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-muted-fg" />
+              Discussion
+            </h2>
+            <ThreadedComments configId={config.id} />
+          </section>
+        ) : (
+          /* Overview tab: default layout */
+          <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
+            <div>
+              <div className="mb-8 overflow-hidden rounded-2xl border border-border">
+                {config.screenshotUrl ? (
+                  <ScreenshotViewer src={config.screenshotUrl} alt={config.title} />
+                ) : (
+                  <div className="bg-gradient-to-br from-accent/10 via-surface to-accent-muted/20">
+                    <div className="flex flex-col items-center justify-center gap-4 px-8 py-14 text-center">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/10">
+                        <RaccoonIcon size={36} className="text-accent/60" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-foreground">{config.title}</h2>
+                        {config.description && (
+                          <p className="mt-1 text-sm text-muted-fg line-clamp-2 max-w-md">
+                            {config.description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {config.tools.slice(0, 6).map((t) => (
+                          <Badge key={t.name} variant="secondary" className="text-xs">
+                            {t.name}
+                          </Badge>
+                        ))}
+                        {config.tools.length > 6 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{config.tools.length - 6}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-fg">
+                        <Avatar className="h-5 w-5">
+                          <AvatarImage src={config.author.image ?? undefined} />
+                          <AvatarFallback className="text-[8px] bg-accent-muted text-accent">
+                            {config.author.name?.[0] ?? "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{config.author.name}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{config.tools.length} tools</span>
+                      </div>
                     </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-foreground">{config.title}</h2>
-                      {config.description && (
-                        <p className="mt-1 text-sm text-muted-fg line-clamp-2 max-w-md">
-                          {config.description}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap justify-center gap-2">
-                      {config.tools.slice(0, 6).map((t) => (
-                        <Badge key={t.name} variant="secondary" className="text-xs">
-                          {t.name}
-                        </Badge>
-                      ))}
-                      {config.tools.length > 6 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{config.tools.length - 6}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-fg">
-                      <Avatar className="h-5 w-5">
-                        <AvatarImage src={config.author.image ?? undefined} />
-                        <AvatarFallback className="text-[8px] bg-accent-muted text-accent">
-                          {config.author.name?.[0] ?? "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{config.author.name}</span>
-                      <span aria-hidden="true">·</span>
-                      <span>{config.tools.length} tools</span>
+                    <div className="border-t border-border/50 bg-surface/50 px-4 py-2 text-center">
+                      <p className="text-[11px] text-muted-fg">
+                        No screenshot — preview generated from config data
+                      </p>
                     </div>
                   </div>
-                  <div className="border-t border-border/50 bg-surface/50 px-4 py-2 text-center">
-                    <p className="text-[11px] text-muted-fg">
-                      No screenshot — preview generated from config data
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
 
-            {/* Description */}
-            <div className="mb-10">
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                {config.title}
-              </h1>
-              {config.description && (
-                <p className="mt-3 text-muted-fg leading-relaxed">
-                  {config.description}
-                </p>
-              )}
-            </div>
-
-            {/* Files */}
-            <div className="mb-10">
-              <FilePreview files={files} repoUrl={config.repoUrl} />
-            </div>
-
-            {/* Install */}
-            <div className="mb-10">
-              <InstallBlock
-                command={config.installCommand}
-                repoUrl={config.repoUrl}
-              />
-            </div>
-          </div>
-
-          {/* ── Right sidebar (sticky) ──────────────────── */}
-          <aside className="space-y-8 sticky top-24 self-start">
-            {/* Vote widget */}
-            <VoteWidget configId={config.id} initialCount={config.upvoteCount} />
-
-            {/* Author */}
-            <section>
-              <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-fg">
-                Author
-              </h2>
-              <Link
-                href={`/profile/${config.author.handle}`}
-                className="flex items-center gap-3 group"
-              >
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={config.author.image ?? undefined} />
-                  <AvatarFallback className="bg-accent-muted text-accent">
-                    {config.author.name?.[0] ?? "U"}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium text-foreground group-hover:text-accent transition-colors">
-                    {config.author.name}
+              <div className="mb-10">
+                <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                  {config.title}
+                </h1>
+                {config.description && (
+                  <p className="mt-3 text-muted-fg leading-relaxed">
+                    {config.description}
                   </p>
-                  <p className="text-xs text-muted-fg">@{config.author.handle}</p>
+                )}
+              </div>
+
+              {files.length > 0 && (
+                <div className="mb-8">
+                  <FileExplorer files={files} />
                 </div>
-              </Link>
-            </section>
+              )}
 
-            {/* Date */}
-            <section>
-              <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-fg">
-                Published
-              </h2>
-              <p className="flex items-center gap-2 text-sm text-foreground">
-                <Calendar className="h-4 w-4 text-muted-fg" />
-                {config.createdAt.toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </p>
-            </section>
+              <div className="mb-10">
+                <FilePreview files={files} repoUrl={config.repoUrl} />
+              </div>
 
-            {/* Source */}
-            <section>
-              <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-fg">
-                Source
-              </h2>
-              <Button variant="secondary" size="sm" className="w-full" asChild>
-                <a
-                  href={config.repoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+              <div className="mb-10">
+                <InstallBlock command={config.installCommand} repoUrl={config.repoUrl} />
+              </div>
+            </div>
+
+            <aside className="space-y-8 sticky top-24 self-start">
+              <VoteWidget configId={config.id} initialCount={config.upvoteCount} />
+
+              <section>
+                <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-fg">
+                  Author
+                </h2>
+                <Link
+                  href={`/profile/${config.author.handle}`}
+                  className="flex items-center gap-3 group"
                 >
-                  <GitBranch className="h-3.5 w-3.5" />
-                  View on GitHub
-                </a>
-              </Button>
-            </section>
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={config.author.image ?? undefined} />
+                    <AvatarFallback className="bg-accent-muted text-accent">
+                      {config.author.name?.[0] ?? "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium text-foreground group-hover:text-accent transition-colors">
+                      {config.author.name}
+                    </p>
+                    <p className="text-xs text-muted-fg">@{config.author.handle}</p>
+                  </div>
+                </Link>
+              </section>
 
-            {/* Tools table */}
-            <ToolsTable tools={config.tools} />
+              <section>
+                <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-fg">
+                  Published
+                </h2>
+                <p className="flex items-center gap-2 text-sm text-foreground">
+                  <Calendar className="h-4 w-4 text-muted-fg" />
+                  {config.createdAt.toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </p>
+              </section>
 
-            {/* Palette */}
-            {/* palette not in schema yet — pass empty for now */}
-            <PaletteSection />
-          </aside>
-        </div>
+              <section>
+                <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-fg">
+                  Source
+                </h2>
+                <Button variant="secondary" size="sm" className="w-full" asChild>
+                  <a href={config.repoUrl} target="_blank" rel="noopener noreferrer">
+                    <GitBranch className="h-3.5 w-3.5" />
+                    View on GitHub
+                  </a>
+                </Button>
+              </section>
 
-        {/* ─── Below the fold: comments ──────────────────── */}
-        <section id="comments" className="mt-16 border-t border-border pt-10 max-w-3xl">
-          <h2 className="mb-6 text-lg font-semibold text-foreground flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-muted-fg" />
-            Discussion
-          </h2>
-          <ThreadedComments configId={config.id} />
-        </section>
+              <ToolsTable tools={config.tools} />
+              <PaletteSection />
+            </aside>
+          </div>
+        )}
       </div>
     </main>
   );
