@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowUp, GitBranch, MessageSquare, Calendar } from "lucide-react";
+import { GitBranch, MessageSquare, Calendar, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { VoteWidget } from "@/components/config/vote-widget";
 import { ThreadedComments } from "@/components/config/threaded-comments";
+import { ScreenshotViewer } from "@/components/config/screenshot-viewer";
 import { RaccoonIcon } from "@/components/ui/logo";
 import { getConfigById } from "@/lib/queries";
 import { fetchGitHubFileList } from "@/lib/detection";
@@ -101,44 +102,139 @@ function PaletteSection({ colors }: { colors?: string[] }) {
   );
 }
 
+/* ─── File language hint ─────────────────────────────────── */
+function fileLang(path: string): string {
+  const ext = path.split(".").pop()?.toLowerCase() ?? "";
+  const map: Record<string, string> = {
+    js: "javascript", ts: "typescript", tsx: "tsx", jsx: "jsx",
+    py: "python", rb: "ruby", rs: "rust", go: "go",
+    lua: "lua", vim: "vim", json: "json", yml: "yaml", yaml: "yaml",
+    toml: "toml", sh: "bash", bash: "bash", zsh: "bash",
+    fish: "fish", nix: "nix", css: "css", html: "html",
+    xml: "xml", md: "markdown", conf: "conf", cfg: "ini",
+    ini: "ini", gitignore: "gitignore", editorconfig: "editorconfig",
+  };
+  return map[ext] ?? "";
+}
+
 /* ─── Files preview ──────────────────────────────────────── */
 function FilePreview({
   files,
   repoUrl,
 }: {
-  files: { name: string; path: string; content: string }[];
+  files: { name: string; path: string; content: string; truncated?: boolean }[];
   repoUrl: string;
 }) {
-  if (!files || files.length === 0) return null;
+  if (!files || files.length === 0) {
+    return (
+      <section>
+        <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-fg">
+          Files
+        </h2>
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-surface/30 py-12 text-center">
+          <FileText className="mb-2 h-6 w-6 text-muted-fg/40" />
+          <p className="text-sm text-muted-fg">No config files previewed</p>
+          <p className="mt-1 text-xs text-muted-fg/60">
+            <a
+              href={repoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-accent"
+            >
+              Browse on GitHub
+            </a>{" "}
+            to explore the full repository.
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section>
       <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-fg">
         Files
       </h2>
-      <div className="space-y-4">
-        {files.map((file) => (
-          <div
-            key={file.path}
-            className="overflow-hidden rounded-xl border border-border bg-surface"
-          >
-            <div className="flex items-center justify-between border-b border-border bg-surface-hover px-4 py-2">
-              <span className="font-mono text-xs text-muted-fg">{file.path}</span>
-              <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
-                <a
-                  href={`${repoUrl}/blob/main/${file.path}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Raw
-                </a>
-              </Button>
+      <div className="space-y-6">
+        {files.map((file) => {
+          const lines = file.content.split("\n");
+          const truncated = file.truncated || file.content.endsWith("...\n...") || file.content.endsWith("...");
+          return (
+            <div
+              key={file.path}
+              className="overflow-hidden rounded-xl border border-border bg-surface"
+            >
+              {/* Header bar */}
+              <div className="flex items-center justify-between border-b border-border bg-surface-hover px-4 py-2 gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-mono text-xs text-muted-fg truncate">
+                    {file.path}
+                  </span>
+                  {fileLang(file.path) && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+                      {fileLang(file.path)}
+                    </Badge>
+                  )}
+                  {truncated && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 border-amber-500/30 text-amber-600 dark:text-amber-400">
+                      Truncated
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] text-muted-fg tabular-nums hidden sm:inline">
+                    {lines.length} lines
+                  </span>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
+                    <a
+                      href={`${repoUrl}/blob/main/${file.path}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Raw
+                    </a>
+                  </Button>
+                </div>
+              </div>
+
+              {/* Code area with line numbers */}
+              <div className="flex max-h-96 overflow-auto">
+                {/* Line numbers gutter */}
+                <div className="select-none border-r border-border bg-surface-hover/50 py-4 text-right" style={{ minWidth: "3rem" }}>
+                  {lines.map((_, i) => (
+                    <div
+                      key={`${file.path}-${i}`}
+                      className="pr-3 text-[11px] leading-[1.65] text-muted-fg/40 tabular-nums"
+                    >
+                      {i + 1}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Code content */}
+                <pre className="flex-1 overflow-x-auto p-4 text-sm leading-[1.65]">
+                  <code className="font-mono text-foreground whitespace-pre-wrap break-all">
+                    {file.content}
+                  </code>
+                </pre>
+              </div>
+
+              {/* Truncation footer */}
+              {truncated && (
+                <div className="border-t border-border bg-surface-hover/30 px-4 py-2 text-center">
+                  <a
+                    href={`${repoUrl}/blob/main/${file.path}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-muted-fg hover:text-accent transition-colors underline"
+                  >
+                    View full file on GitHub →
+                  </a>
+                </div>
+              )}
             </div>
-            <pre className="overflow-x-auto p-4 text-sm leading-relaxed">
-              <code className="font-mono text-foreground">{file.content}</code>
-            </pre>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
@@ -180,41 +276,76 @@ export default async function ConfigDetailPage({ params }: Props) {
 
   if (!config) notFound();
 
-  let files: { name: string; path: string; content: string }[] = [];
-try {
-  const { files: repoFiles, error } = await fetchGitHubFileList(config.repoUrl);
-  if (!error && repoFiles.length > 0) {
-    const match = config.repoUrl.match(/github\.com[/:]([^/]+)\/([^/\s#?]+?)(?:\.git)?(?:\/|$)/);
-    const [, owner, repo] = match || [];
-    if (owner && repo) {
-      const filtered = repoFiles.filter((p: string) => {
-        const lower = p.toLowerCase();
-        if (lower.includes("node_modules") || lower.includes(".git")) return false;
-        if (lower.startsWith(".")) return true;
-        if (/\binit\.(lua|vim)$/i.test(p)) return true;
-        if (/\bconfig\.(json|yml|yaml|toml)$/i.test(p)) return true;
-        return false;
-      }).slice(0, 10);
+  let files: { name: string; path: string; content: string; truncated?: boolean }[] = [];
+  try {
+    const { files: repoFiles, error } = await fetchGitHubFileList(config.repoUrl);
+    if (error) {
+      console.warn("GitHub file list fetch skipped:", error);
+    } else if (repoFiles.length > 0) {
+      const match = config.repoUrl.match(/github\.com[/:]([^/]+)\/([^/\s#?]+?)(?:\.git)?(?:\/|$)/);
+      const [, owner, repo] = match || [];
+      if (owner && repo) {
+        // Focus on dotfiles and config — skip generated/build dirs
+        const filtered = repoFiles.filter((p: string) => {
+          const lower = p.toLowerCase();
+          if (lower.includes("node_modules") || lower.includes(".git") || lower.includes("__pycache__")) return false;
+          if (lower.startsWith(".")) return true;
+          if (/\b(init|config|settings)\.(lua|vim|json|yml|yaml|toml|conf)$/i.test(p)) return true;
+          if (/\.(bashrc|zshrc|profile|bash_profile|zprofile|gitconfig|tmux\.conf)$/i.test(p)) return true;
+          return lower.startsWith(".") || (lower.includes("config") && !lower.includes("node_modules"));
+        }).slice(0, 8);
 
-      for (const path of filtered) {
-        const contentRes = await fetchWithTimeout(`https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`, {
-          timeout: 5000,
-          headers: { Accept: "application/vnd.github+json" },
-        });
-        if (!contentRes.ok) continue;
-        const data = await contentRes.json();
-        if (data.encoding !== "base64" || !data.content) continue;
-        let decoded = Buffer.from(data.content, "base64").toString("utf-8");
-        if (decoded.length > 5000) decoded = decoded.slice(0, 5000) + "...";
-        const lines = decoded.split("\n");
-        if (lines.length > 80) decoded = lines.slice(0, 80).join("\n") + "\n...";
-        files.push({ name: path.split("/").pop() ?? path, path, content: decoded });
+        for (const path of filtered) {
+          try {
+            const contentRes = await fetchWithTimeout(
+              `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`,
+              { timeout: 5000, headers: { Accept: "application/vnd.github+json" } },
+            );
+            if (!contentRes.ok) {
+              if (contentRes.status === 403) continue; // rate limited, skip silently
+              if (contentRes.status === 404) continue; // file moved, skip
+              continue;
+            }
+            const data = await contentRes.json();
+            // Skip non-file entries (dirs, symlinks, submodules)
+            if (data.type !== "file") continue;
+            // Skip non-base64 encoding
+            if (data.encoding !== "base64" || !data.content) continue;
+            // Try to decode; skip if binary garbage
+            let decoded: string;
+            try {
+              decoded = Buffer.from(data.content, "base64").toString("utf-8");
+              // Quick binary detection: check for null bytes
+              if (decoded.includes("\u0000")) continue;
+            } catch {
+              continue; // not valid base64/utf-8
+            }
+            // Truncate long content
+            const MAX_CHARS = 4000;
+            const MAX_LINES = 60;
+            let truncated = false;
+            if (decoded.length > MAX_CHARS) {
+              decoded = decoded.slice(0, MAX_CHARS);
+              truncated = true;
+            }
+            const lineArr = decoded.split("\n");
+            if (lineArr.length > MAX_LINES) {
+              decoded = lineArr.slice(0, MAX_LINES).join("\n");
+              truncated = true;
+            }
+            if (truncated) decoded += "\n\n/* … truncated … */";
+            files.push({ name: path.split("/").pop() ?? path, path, content: decoded, truncated });
+          } catch {
+            // Individual file fetch failed; skip this file, continue with others
+            continue;
+          }
+        }
       }
     }
+  } catch (e) {
+    // Entire fetch batch failed — files stays empty, UI falls back to "No files" state
+    console.warn("GitHub file preview unavailable:", e);
   }
-} catch (e) {
-  files = [];
-}
 
   return (
     <main className="min-h-screen pb-20">
@@ -232,15 +363,11 @@ try {
           {/* ── Left column ────────────────────────────── */}
           <div>
             {/* Screenshot */}
-            <div className="mb-8 overflow-hidden rounded-2xl border border-border bg-surface-muted aspect-[16/9] flex items-center justify-center">
+            <div className="mb-8 overflow-hidden rounded-2xl border border-border bg-surface-muted">
               {config.screenshotUrl ? (
-                <img
-                  src={config.screenshotUrl}
-                  alt={config.title}
-                  className="h-full w-full object-cover"
-                />
+                <ScreenshotViewer src={config.screenshotUrl} alt={config.title} />
               ) : (
-                <div className="flex flex-col items-center gap-3">
+                <div className="flex flex-col items-center gap-3 py-16">
                   <RaccoonIcon size={64} className="text-muted-fg/20" />
                   <p className="text-sm text-muted-fg">
                     No screenshot yet
