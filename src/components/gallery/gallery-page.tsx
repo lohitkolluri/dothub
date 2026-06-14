@@ -7,6 +7,7 @@ import { Search, Grid3X3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfigCard, type ConfigCardData } from "./config-card";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 // Sort options – map to API query param
 const sorts = [
@@ -80,7 +81,7 @@ export function GalleryPage() {
   // Fetch tags (once)
   // ---------------------------------------------------------------------
   useEffect(() => {
-    fetch("/api/tags")
+    fetchWithTimeout("/api/tags", { timeout: 5000 })
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => setTags(Array.isArray(data) ? data : []))
       .catch(() => setTags([]));
@@ -97,7 +98,7 @@ export function GalleryPage() {
     params.set("sort", activeSort);
     if (searchQuery) params.set("q", searchQuery);
     if (activeTag) params.set("tag", activeTag);
-    fetch(`/api/configs?${params.toString()}`)
+    fetchWithTimeout(`/api/configs?${params.toString()}`, { timeout: 10000 })
       .then((r) => r.json())
       .then((data) => {
         setConfigs(data.data ?? []);

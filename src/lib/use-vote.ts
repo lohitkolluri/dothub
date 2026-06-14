@@ -1,5 +1,6 @@
 "use client";
 import { useState, useCallback } from "react";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 export function useVote(configId: string, initialCount: number) {
   const [count, setCount] = useState(initialCount);
@@ -10,7 +11,7 @@ export function useVote(configId: string, initialCount: number) {
     if (busy) return;
     setBusy(true);
     try {
-      const res = await fetch("/api/vote", {
+      const res = await fetchWithTimeout("/api/vote", { timeout: 5000,
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ configId }),

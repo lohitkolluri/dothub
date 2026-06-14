@@ -1,11 +1,11 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MessageSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { signIn } from "next-auth/react";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 interface Comment {
   id: string;
@@ -98,7 +98,7 @@ function CommentForm({
     if (!body.trim() || posting) return;
     setPosting(true);
     try {
-      const res = await fetch("/api/comments", {
+      const res = await fetchWithTimeout("/api/comments", { timeout: 15000,
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ configId, parentId, body: body.trim() }),
@@ -144,7 +144,7 @@ export function ThreadedComments({ configId }: ThreadedCommentsProps) {
 
   const fetchComments = useCallback(() => {
     setLoading(true);
-    fetch(`/api/comments?configId=${configId}`)
+    fetchWithTimeout(`/api/comments?configId=${configId}`, { timeout: 10000 })
       .then((r) => r.json())
       .then((data) => setComments(Array.isArray(data) ? data : []))
       .catch(() => setComments([]))

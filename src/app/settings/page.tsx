@@ -1,4 +1,5 @@
 "use client";
+import { fetchWithTimeout } from '@/lib/fetch-with-timeout';
 
 import { useState, useEffect, FormEvent } from "react";
 import { useSession } from "next-auth/react";
@@ -42,7 +43,7 @@ export default function SettingsPage() {
     setError("");
 
     try {
-      const res = await fetch("/api/profile", {
+      const res = await fetchWithTimeout("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, bio }),

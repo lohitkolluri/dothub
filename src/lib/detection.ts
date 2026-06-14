@@ -1,4 +1,5 @@
 // DotHub — Tool auto-detection engine
+import { fetchWithTimeout } from '@/lib/fetch-with-timeout';
 // Pure, deterministic, NO AI tokens burned.
 // Maps file paths to known developer tools with categories and icons.
 
@@ -582,7 +583,8 @@ export async function fetchGitHubFileList(
   const apiUrl = `https://api.github.com/repos/${owner}/${repoName}/git/trees/HEAD?recursive=1`;
 
   try {
-    const res = await fetch(apiUrl, {
+    const res = await fetchWithTimeout(apiUrl, {
+      timeout: 10000,
       headers: { Accept: "application/vnd.github+json" },
       // Optional: `Authorization: Bearer ${process.env.GITHUB_TOKEN}` for higher rate limits
     });

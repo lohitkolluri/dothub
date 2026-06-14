@@ -8,6 +8,7 @@ import {
   Loader2, Upload, Link as LinkIcon, Check, AlertCircle,
   X, ChevronRight, Plus,
 } from "lucide-react";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { signIn } from "next-auth/react";
@@ -71,7 +72,7 @@ export default function SubmitPage() {
     setDetecting(true);
     setError(null);
     try {
-      const res = await fetch("/api/detect", {
+      const res = await fetchWithTimeout("/api/detect", { timeout: 15000,
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ repoUrl: repoUrl.trim() }),
@@ -104,7 +105,7 @@ export default function SubmitPage() {
       const formData = new FormData();
       formData.append("file", screenshot);
       try {
-        const upRes = await fetch("/api/upload", {
+        const upRes = await fetchWithTimeout("/api/upload", { timeout: 15000,
           method: "POST",
           body: formData,
         });
@@ -129,7 +130,7 @@ export default function SubmitPage() {
 
     // Create config
     try {
-      const res = await fetch("/api/configs", {
+      const res = await fetchWithTimeout("/api/configs", { timeout: 15000,
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

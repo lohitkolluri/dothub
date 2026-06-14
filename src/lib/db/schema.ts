@@ -6,6 +6,7 @@ import {
   jsonb,
   primaryKey,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 
 /* ─── Auth.js Adapter Tables ────────────────────────────────── */
@@ -84,7 +85,9 @@ export const configs = pgTable("configs", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-}, (t) => [uniqueIndex("repo_url_idx").on(t.repoUrl)]);
+}, (t) => [uniqueIndex("repo_url_idx").on(t.repoUrl),
+  index("idx_configs_user_id").on(t.userId),
+  index("idx_configs_upvote_created").on(t.upvoteCount, t.createdAt)]);
 
 /* ─── Upvotes ───────────────────────────────────────────────── */
 
@@ -127,7 +130,7 @@ export const comments = pgTable("comments", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-});
+}, (t) => [index("idx_comments_config_id").on(t.configId)]);
 
 export const configTags = pgTable(
   "config_tags",
@@ -139,5 +142,6 @@ export const configTags = pgTable(
       .notNull()
       .references(() => tags.id, { onDelete: "cascade" }),
   },
-  (t) => [primaryKey({ columns: [t.configId, t.tagId] })],
+  (t) => [primaryKey({ columns: [t.configId, t.tagId] }),
+    index("idx_config_tags_tag_id").on(t.tagId)],
 );

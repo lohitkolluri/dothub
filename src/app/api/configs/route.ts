@@ -160,10 +160,11 @@ export async function GET(request: Request) {
       .limit(limit)
       .offset((page - 1) * limit);
 
-    // Total count
+    // Total count (respects WHERE filters)
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)::int` })
-      .from(configs);
+      .from(configs)
+      .where(and(...conditions));
     const total = count ?? 0;
 
     const mapped = rows.map((r) => ({

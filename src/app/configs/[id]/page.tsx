@@ -10,6 +10,7 @@ import { ThreadedComments } from "@/components/config/threaded-comments";
 import { RaccoonIcon } from "@/components/ui/logo";
 import { getConfigById } from "@/lib/queries";
 import { fetchGitHubFileList } from "@/lib/detection";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -196,7 +197,8 @@ try {
       }).slice(0, 10);
 
       for (const path of filtered) {
-        const contentRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`, {
+        const contentRes = await fetchWithTimeout(`https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`, {
+          timeout: 5000,
           headers: { Accept: "application/vnd.github+json" },
         });
         if (!contentRes.ok) continue;
