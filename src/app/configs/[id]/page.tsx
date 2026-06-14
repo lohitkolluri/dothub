@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { VoteWidget } from "@/components/config/vote-widget";
 import { ThreadedComments } from "@/components/config/threaded-comments";
 import { ScreenshotViewer } from "@/components/config/screenshot-viewer";
+import { FileActions } from "@/components/config/file-actions";
 import { RaccoonIcon } from "@/components/ui/logo";
 import { getConfigById } from "@/lib/queries";
 import { fetchGitHubFileList } from "@/lib/detection";
@@ -185,6 +186,7 @@ function FilePreview({
                   <span className="text-[11px] text-muted-fg tabular-nums hidden sm:inline">
                     {lines.length} lines
                   </span>
+                  <FileActions content={file.content} filename={file.path.split("/").pop() ?? file.path} />
                   <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
                     <a
                       href={`${repoUrl}/blob/main/${file.path}`}
@@ -197,10 +199,9 @@ function FilePreview({
                 </div>
               </div>
 
-              {/* Code area with line numbers */}
-              <div className="flex max-h-96 overflow-auto">
-                {/* Line numbers gutter */}
-                <div className="select-none border-r border-border bg-surface-hover/50 py-4 text-right" style={{ minWidth: "3rem" }}>
+              {/* Code: single unified scroll container */}
+              <div className="flex overflow-auto max-h-96">
+                <div className="select-none border-r border-border bg-surface-hover/50 py-4 text-right shrink-0" style={{ minWidth: "3rem" }}>
                   {lines.map((_, i) => (
                     <div
                       key={`${file.path}-${i}`}
@@ -210,9 +211,7 @@ function FilePreview({
                     </div>
                   ))}
                 </div>
-
-                {/* Code content */}
-                <pre className="flex-1 overflow-x-auto p-4 text-sm leading-[1.65]">
+                <pre className="flex-1 p-4 text-sm leading-[1.65]">
                   <code className="font-mono text-foreground whitespace-pre-wrap break-all">
                     {file.content}
                   </code>
@@ -362,16 +361,53 @@ export default async function ConfigDetailPage({ params }: Props) {
         <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
           {/* ── Left column ────────────────────────────── */}
           <div>
-            {/* Screenshot */}
-            <div className="mb-8 overflow-hidden rounded-2xl border border-border bg-surface-muted">
+            {/* Screenshot / fallback preview */}
+            <div className="mb-8 overflow-hidden rounded-2xl border border-border">
               {config.screenshotUrl ? (
                 <ScreenshotViewer src={config.screenshotUrl} alt={config.title} />
               ) : (
-                <div className="flex flex-col items-center gap-3 py-16">
-                  <RaccoonIcon size={64} className="text-muted-fg/20" />
-                  <p className="text-sm text-muted-fg">
-                    No screenshot yet
-                  </p>
+                <div className="bg-gradient-to-br from-accent/10 via-surface to-accent-muted/20">
+                  <div className="flex flex-col items-center justify-center gap-4 px-8 py-14 text-center">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/10">
+                      <RaccoonIcon size={36} className="text-accent/60" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-foreground">{config.title}</h2>
+                      {config.description && (
+                        <p className="mt-1 text-sm text-muted-fg line-clamp-2 max-w-md">
+                          {config.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {config.tools.slice(0, 6).map((t) => (
+                        <Badge key={t.name} variant="secondary" className="text-xs">
+                          {t.name}
+                        </Badge>
+                      ))}
+                      {config.tools.length > 6 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{config.tools.length - 6}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-fg">
+                      <Avatar className="h-5 w-5">
+                        <AvatarImage src={config.author.image ?? undefined} />
+                        <AvatarFallback className="text-[8px] bg-accent-muted text-accent">
+                          {config.author.name?.[0] ?? "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{config.author.name}</span>
+                      <span aria-hidden="true">·</span>
+                      <span>{config.tools.length} tools</span>
+                    </div>
+                  </div>
+                  <div className="border-t border-border/50 bg-surface/50 px-4 py-2 text-center">
+                    <p className="text-[11px] text-muted-fg">
+                      No screenshot — preview generated from config data
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -402,8 +438,8 @@ export default async function ConfigDetailPage({ params }: Props) {
             </div>
           </div>
 
-          {/* ── Right sidebar ──────────────────────────── */}
-          <aside className="space-y-8">
+          {/* ── Right sidebar (sticky) ──────────────────── */}
+          <aside className="space-y-8 sticky top-24 self-start">
             {/* Vote widget */}
             <VoteWidget configId={config.id} initialCount={config.upvoteCount} />
 
