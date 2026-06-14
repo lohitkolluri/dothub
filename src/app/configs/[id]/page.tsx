@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { VoteWidget } from "@/components/config/vote-widget";
 import { ThreadedComments } from "@/components/config/threaded-comments";
+import { RaccoonIcon } from "@/components/ui/logo";
 import { getConfigById } from "@/lib/queries";
+import { fetchGitHubFileList } from "@/lib/detection";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -177,8 +179,40 @@ export default async function ConfigDetailPage({ params }: Props) {
 
   if (!config) notFound();
 
-  // Mock files until the API stores them
-  const files: { name: string; path: string; content: string }[] = [];
+  let files: { name: string; path: string; content: string }[] = [];
+try {
+  const { files: repoFiles, error } = await fetchGitHubFileList(config.repoUrl);
+  if (!error && repoFiles.length > 0) {
+    const match = config.repoUrl.match(/github\.com[/:]([^/]+)\/([^/\s#?]+?)(?:\.git)?(?:\/|$)/);
+    const [, owner, repo] = match || [];
+    if (owner && repo) {
+      const filtered = repoFiles.filter((p: string) => {
+        const lower = p.toLowerCase();
+        if (lower.includes("node_modules") || lower.includes(".git")) return false;
+        if (lower.startsWith(".")) return true;
+        if (/\binit\.(lua|vim)$/i.test(p)) return true;
+        if (/\bconfig\.(json|yml|yaml|toml)$/i.test(p)) return true;
+        return false;
+      }).slice(0, 10);
+
+      for (const path of filtered) {
+        const contentRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`, {
+          headers: { Accept: "application/vnd.github+json" },
+        });
+        if (!contentRes.ok) continue;
+        const data = await contentRes.json();
+        if (data.encoding !== "base64" || !data.content) continue;
+        let decoded = Buffer.from(data.content, "base64").toString("utf-8");
+        if (decoded.length > 5000) decoded = decoded.slice(0, 5000) + "...";
+        const lines = decoded.split("\n");
+        if (lines.length > 80) decoded = lines.slice(0, 80).join("\n") + "\n...";
+        files.push({ name: path.split("/").pop() ?? path, path, content: decoded });
+      }
+    }
+  }
+} catch (e) {
+  files = [];
+}
 
   return (
     <main className="min-h-screen pb-20">
@@ -204,9 +238,9 @@ export default async function ConfigDetailPage({ params }: Props) {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="text-center">
-                  <span className="text-5xl text-muted-fg/20">◆</span>
-                  <p className="mt-3 text-sm text-muted-fg">
+                <div className="flex flex-col items-center gap-3">
+                  <RaccoonIcon size={64} className="text-muted-fg/20" />
+                  <p className="text-sm text-muted-fg">
                     No screenshot yet
                   </p>
                 </div>

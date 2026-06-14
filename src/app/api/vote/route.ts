@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { configs, upvotes } from "@/lib/db/schema";
+import { rateLimit } from "@/lib/rate-limit";
 import { and, eq, sql } from "drizzle-orm";
 
 export async function POST(request: Request) {
@@ -9,6 +10,13 @@ export async function POST(request: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Rate limit: max 30 votes per minute per user
+  const rl = rateLimit(`vote:${session.user.id}`, { windowMs: 60000, max: 30 });
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many votes. Slow down." }, { status: 429 });
+  }
+
 
   let body: { configId?: string };
   try {

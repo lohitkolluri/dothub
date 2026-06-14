@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getDb } from "./db";
 import { configs, users } from "./db/schema";
 
@@ -12,7 +12,7 @@ export type ConfigDetail = {
   tools: { name: string; category: string }[];
   upvoteCount: number;
   createdAt: Date;
-  author: { id: string; name: string | null; handle: string; image: string | null };
+  author: { id: string; name: string | null; handle: string; bio: string | null; image: string | null };
 };
 
 export async function getConfigById(id: string): Promise<ConfigDetail | null> {
@@ -30,6 +30,8 @@ export async function getConfigById(id: string): Promise<ConfigDetail | null> {
       createdAt: configs.createdAt,
       userId: configs.userId,
       userName: users.name,
+      userHandle: users.handle,
+      userBio: users.bio,
       userImage: users.image,
     })
     .from(configs)
@@ -53,7 +55,8 @@ export async function getConfigById(id: string): Promise<ConfigDetail | null> {
     author: {
       id: row.userId,
       name: row.userName,
-      handle: row.userName ?? "user",
+      handle: row.userHandle ?? row.userName ?? "user",
+      bio: row.userBio ?? null,
       image: row.userImage,
     },
   };
@@ -68,11 +71,68 @@ export async function getConfigsByUserId(userId: string) {
     .orderBy(configs.createdAt);
 }
 
+export async function getTrendingConfigs(limit: number = 20) {
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: configs.id,
+      title: configs.title,
+      description: configs.description,
+      repoUrl: configs.repoUrl,
+      screenshotUrl: configs.screenshotUrl,
+      installCommand: configs.installCommand,
+      tools: configs.tools,
+      upvoteCount: configs.upvoteCount,
+      createdAt: configs.createdAt,
+      userId: configs.userId,
+      userName: users.name,
+      userHandle: users.handle,
+      userBio: users.bio,
+      userImage: users.image,
+
+      score: sql`
+        (${configs.upvoteCount}::float / (
+          ${configs.upvoteCount}::float + 2.0 +
+          0.05 * EXTRACT(EPOCH FROM (NOW() - ${configs.createdAt})) / 3600
+        ))
+      `,
+    })
+    .from(configs)
+    .leftJoin(users, eq(configs.userId, users.id))
+    .orderBy(sql`score DESC`)
+    .limit(limit);
+
+
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    description: row.description ?? "",
+    repoUrl: row.repoUrl,
+    screenshotUrl: row.screenshotUrl,
+    installCommand: row.installCommand,
+    tools: (row.tools ?? []) as { name: string; category: string }[],
+    upvoteCount: row.upvoteCount,
+    createdAt: row.createdAt,
+    author: {
+      id: row.userId,
+      name: row.userName,
+      handle: row.userHandle ?? row.userName ?? "user",
+      bio: row.userBio ?? null,
+      image: row.userImage,
+    },
+  }));
+}
+
+
+
 export type ProfileData = {
   id: string;
   name: string | null;
+  handle: string;
+  bio: string | null;
   email: string;
   image: string | null;
+  createdAt: Date | null;
   configCount: number;
   totalUpvotes: number;
   configs: Array<{
@@ -91,22 +151,25 @@ export async function getUserByHandle(
   const [user] = await db
     .select()
     .from(users)
-    .where(eq(users.name, handle))
+    .where(eq(users.handle, handle))
     .limit(1);
 
   if (!user) return null;
 
   const userConfigs = await getConfigsByUserId(user.id);
   const totalUpvotes = userConfigs.reduce(
-    (sum, c) => sum + c.upvoteCount,
+    (sum: number, c: { upvoteCount: number }) => sum + c.upvoteCount,
     0,
   );
 
   return {
     id: user.id,
     name: user.name,
+    handle: user.handle,
+    bio: user.bio,
     email: user.email,
     image: user.image,
+    createdAt: user.emailVerified ?? null,
     configCount: userConfigs.length,
     totalUpvotes,
     configs: userConfigs.map((c) => ({

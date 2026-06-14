@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { ArrowUp, MessageSquare, ChevronUp } from "lucide-react";
+import React, { useState } from "react";
+import { useVote } from "@/lib/use-vote";
+import { MessageSquare, ChevronUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export type ConfigCardData = {
@@ -89,30 +90,7 @@ function VoteButton({
   configId: string;
   initialCount: number;
 }) {
-  const [count, setCount] = useState(initialCount);
-  const [voted, setVoted] = useState<boolean | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  async function toggle() {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const res = await fetch("/api/vote", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ configId }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setVoted(data.voted);
-        setCount(data.count);
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { count, voted, busy, toggle } = useVote(configId, initialCount);
 
   return (
     <button
@@ -133,7 +111,7 @@ function VoteButton({
 }
 
 /* ─── ConfigCard ────────────────────────────────────────── */
-export function ConfigCard({ config, index = 0 }: ConfigCardProps) {
+export const ConfigCard = React.memo(function ConfigCard({ config, index = 0 }: ConfigCardProps) {
   return (
     <article
       className="group relative overflow-hidden rounded-xl border border-border bg-surface transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-accent/30"
@@ -189,4 +167,4 @@ export function ConfigCard({ config, index = 0 }: ConfigCardProps) {
       </div>
     </article>
   );
-}
+});

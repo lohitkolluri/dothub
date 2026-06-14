@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import { useCallback, useState, useRef } from "react";
 import {
   Loader2, Upload, Link as LinkIcon, Check, AlertCircle,
-  X, ChevronRight,
+  X, ChevronRight, Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,22 @@ export default function SubmitPage() {
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [detected, setDetected] = useState<{ name: string; category: string }[]>([]);
+  const [manualName, setManualName] = useState("");
+  const [manualCategory, setManualCategory] = useState("misc");
+
+  const toolCategories = [
+    "terminal", "shell", "editor", "window_manager", "bar",
+    "launcher", "compositor", "notification", "theme", "font",
+    "mail", "browser", "file_manager", "media", "monitor", "misc",
+  ];
+
+  const addManualTool = useCallback(() => {
+    const name = manualName.trim();
+    if (!name) return;
+    if (detected.some((t) => t.name.toLowerCase() === name.toLowerCase())) return;
+    setDetected((prev) => [...prev, { name, category: manualCategory }]);
+    setManualName("");
+  }, [manualName, manualCategory, detected]);
 
   /* ─── Async state ─────────────────────────────────────── */
   const [detecting, setDetecting] = useState(false);
@@ -270,12 +286,42 @@ export default function SubmitPage() {
             </div>
           )}
 
-          {detected.length === 0 && !detecting && repoUrl.trim() && (
-            <p className="text-xs text-muted-fg flex items-center gap-1.5">
-              <AlertCircle className="h-3 w-3" />
-              Click &quot;Detect&quot; to automatically find tools in the repository.
+          {/* ─── Manual tool entry ──────────────────────── */}
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <p className="mb-3 text-sm font-medium text-foreground flex items-center gap-2">
+              <Plus className="h-4 w-4 text-accent" />
+              Add a tool manually
             </p>
-          )}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={manualName}
+                onChange={(e) => setManualName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addManualTool()}
+                placeholder="Tool name (e.g. starship)"
+                className="min-w-0 flex-1 rounded-lg border border-border bg-surface-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-fg focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/10 transition-all"
+              />
+              <select
+                value={manualCategory}
+                onChange={(e) => setManualCategory(e.target.value)}
+                className="w-40 rounded-lg border border-border bg-surface-muted px-2.5 py-2 text-sm text-foreground focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/10 transition-all capitalize"
+              >
+                {toolCategories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {catIcons[cat] || "◇"} {cat.replace(/_/g, " ")}
+                  </option>
+                ))}
+              </select>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={addManualTool}
+                disabled={!manualName.trim()}
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
 
           {/* Install command */}
           <div>

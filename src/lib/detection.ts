@@ -71,6 +71,30 @@ const RULES: DetectionRule[] = [
     icon: "PanelRightDashed",
     patterns: [/\.tmux\.conf$/i, /tmux\/tmux\.conf$/i, /tmux\.conf$/],
   },
+  {
+    name: "Ghostty",
+    category: "terminal",
+    icon: "Terminal",
+    patterns: [/ghostty\/config$/i, /\.config\/ghostty\/config$/i, /ghostty\.yml$/i],
+  },
+  {
+    name: "Foot",
+    category: "terminal",
+    icon: "Terminal",
+    patterns: [/foot\/foot\.ini$/i, /\.config\/foot\/foot\.ini$/i],
+  },
+  {
+    name: "Warp",
+    category: "terminal",
+    icon: "Terminal",
+    patterns: [/warp\/launch_configurations\.yaml$/i, /\.warp\//i],
+  },
+  {
+    name: "Tabby",
+    category: "terminal",
+    icon: "Terminal",
+    patterns: [/tabby\/config\.yaml$/i],
+  },
 
   // === Shells ===
   {
@@ -98,12 +122,50 @@ const RULES: DetectionRule[] = [
     patterns: [/config\.fish$/i, /fish\/config\.fish$/i],
   },
   {
+    name: "Xonsh",
+    category: "shell",
+    icon: "Terminal",
+    patterns: [/\.xonshrc$/i, /xonsh\/rc\.xsh$/i],
+  },
+  {
+    name: "Elvish",
+    category: "shell",
+    icon: "Terminal",
+    patterns: [/\.elvish\/rc\.elv$/i, /elvish\/rc\.elv$/i],
+  },
+  {
     name: "Nushell",
     category: "shell",
     icon: "Terminal",
-    patterns: [/env\.nu$/i, /config\.nu$/i, /\.nu$/],
+    patterns: [/env\.nu$/i, /config\.nu$/i, /\.nu$/i],
   },
 
+
+  // === Editors ===
+  {
+    name: "Vimiv",
+    category: "editor",
+    icon: "FileCode",
+    patterns: [/vimiv\/vimiv\.conf$/i],
+  },
+  {
+    name: "Kakoune",
+    category: "editor",
+    icon: "FileCode",
+    patterns: [/kak\/kakrc$/i, /\.config\/kak\/kakrc$/i],
+  },
+  {
+    name: "Doom Emacs",
+    category: "editor",
+    icon: "FileCode",
+    patterns: [/doom\/config\.el$/i, /doom\/init\.el$/i, /\.doom\.d\/config\.el$/i],
+  },
+  {
+    name: "AstroNvim",
+    category: "editor",
+    icon: "FileCode",
+    patterns: [/astronvim\/init\.lua$/i, /\.config\/astronvim\//i],
+  },
   // === Editors ===
   {
     name: "Neovim",
@@ -192,7 +254,42 @@ const RULES: DetectionRule[] = [
     icon: "LayoutGrid",
     patterns: [/xmonad\.hs$/i, /xmonad\/xmonad\.hs$/i],
   },
-
+  {
+    name: "dwm",
+    category: "window_manager",
+    icon: "LayoutGrid",
+    patterns: [/dwm\/config\.h$/i, /\.config\/dwm\/config\.h$/i, /dwm\/config\.def\.h$/i],
+  },
+  {
+    name: "herbstluftwm",
+    category: "window_manager",
+    icon: "LayoutGrid",
+    patterns: [/herbstluftwm\/autostart$/i, /\.config\/herbstluftwm\//i],
+  },
+  {
+    name: "openbox",
+    category: "window_manager",
+    icon: "LayoutGrid",
+    patterns: [/openbox\/rc\.xml$/i, /\.config\/openbox\/rc\.xml$/i],
+  },
+  {
+    name: "leftwm",
+    category: "window_manager",
+    icon: "LayoutGrid",
+    patterns: [/leftwm\/config\.toml$/i, /\.config\/leftwm\/config\.toml$/i],
+  },
+  {
+    name: "river",
+    category: "window_manager",
+    icon: "LayoutGrid",
+    patterns: [/river\/init$/i, /\.config\/river\/init$/i],
+  },
+  {
+    name: "fvwm",
+    category: "window_manager",
+    icon: "LayoutGrid",
+    patterns: [/\.fvwm\/config$/i, /\.fvwm\/\.fvwm2rc$/i],
+  },
   // === Bars ===
   {
     name: "Polybar",
@@ -406,7 +503,33 @@ const RULES: DetectionRule[] = [
     name: "Homebrew",
     category: "misc",
     icon: "Package",
-    patterns: [/Brewfile$/i, /\.Brewfile$/i],
+    patterns: [/Brewfile$/i, /.Brewfile$/i],
+  },
+  // === Launchers ===
+  {
+    name: "skhd",
+    category: "launcher",
+    icon: "Keyboard",
+    patterns: [/skhd\/skhdrc$/i, /.config\/skhd\/skhdrc$/i],
+  },
+  // === Misc ===
+  {
+    name: "Karabiner",
+    category: "misc",
+    icon: "Keyboard",
+    patterns: [/karabiner\/karabiner\.json$/i, /.config\/karabiner\/karabiner\.json$/i],
+  },
+  {
+    name: "espanso",
+    category: "misc",
+    icon: "FileText",
+    patterns: [/espanso\/default\.yml$/i, /.config\/espanso\//i],
+  },
+  {
+    name: "Gnu Stow",
+    category: "misc",
+    icon: "Package",
+    patterns: [/\.stow-local-ignore$/i, /stow\/.*$/i],
   },
 ];
 

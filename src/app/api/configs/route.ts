@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { configs, users } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { rateLimit } from "@/lib/rate-limit";
+import { configs, users, comments, configTags, tags } from "@/lib/db/schema";
+import { eq, desc, sql, and } from "drizzle-orm";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -41,6 +42,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid GitHub URL" }, { status: 400 });
   }
 
+  // Rate limit: max 5 submissions per hour per user
+  const rl = rateLimit(`config:post:${session.user.id}`, {
+    windowMs: 3600000,
+    max: 5,
+  });
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Too many submissions. Try again later." },
+      { status: 429 },
+    );
+  }
+
+  const dup = await getDb()
+    .select({ id: configs.id })
+    .from(configs)
+    .where(eq(configs.repoUrl, repoUrl.trim()))
+    .limit(1);
+
+  if (dup.length > 0) {
+    return NextResponse.json(
+      { error: "This repository has already been submitted" },
+      { status: 409 },
+    );
+  }
+
   try {
     const [created] = await getDb()
       .insert(configs)
@@ -70,9 +96,47 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const rows = await getDb()
+    const url = new URL(request.url);
+    const params = url.searchParams;
+    const page = Math.max(1, parseInt(params.get("page") || "1"));
+    const limit = Math.min(
+      50,
+      Math.max(1, parseInt(params.get("limit") || "24")),
+    );
+    const sort = params.get("sort") || "new";
+    const q = params.get("q")?.trim() ?? "";
+    const tag = params.get("tag")?.trim() ?? "";
+
+    const db = getDb();
+
+    // Build WHERE conditions
+    const conditions: ReturnType<typeof and>[] = [];
+
+    if (q) {
+      const like = `%${q}%`;
+      conditions.push(
+        sql`(${configs.title} ILIKE ${like} OR ${configs.description} ILIKE ${like})`,
+      );
+    }
+
+    if (tag) {
+      conditions.push(
+        sql`EXISTS (SELECT 1 FROM ${configTags} ct JOIN ${tags} t ON t.id = ct.tag_id WHERE ct.config_id = ${configs.id} AND t.slug = ${tag})`,
+      );
+    }
+
+    // Build ORDER BY
+    const orderByClause =
+      sort === "hot"
+        ? sql`${configs.upvoteCount}::float / (${configs.upvoteCount}::float + 2.0 + 0.05 * EXTRACT(EPOCH FROM (NOW() - ${configs.createdAt})) / 3600) DESC`
+        : sort === "top"
+          ? desc(configs.upvoteCount)
+          : desc(configs.createdAt);
+
+    // Single chain to avoid Drizzle type inference issues with reassignment
+    const rows = await db
       .select({
         id: configs.id,
         title: configs.title,
@@ -81,14 +145,26 @@ export async function GET() {
         screenshotUrl: configs.screenshotUrl,
         tools: configs.tools,
         upvoteCount: configs.upvoteCount,
+        commentCount:
+          sql<number>`(SELECT count(*)::int FROM ${comments} WHERE config_id = ${configs.id})`,
         createdAt: configs.createdAt,
         userId: configs.userId,
         userName: users.name,
+        userHandle: users.handle,
         userImage: users.image,
       })
       .from(configs)
       .leftJoin(users, eq(configs.userId, users.id))
-      .orderBy(desc(configs.createdAt));
+      .where(and(...conditions))
+      .orderBy(orderByClause)
+      .limit(limit)
+      .offset((page - 1) * limit);
+
+    // Total count
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(configs);
+    const total = count ?? 0;
 
     const mapped = rows.map((r) => ({
       id: r.id,
@@ -96,17 +172,21 @@ export async function GET() {
       description: r.description ?? "",
       author: {
         name: r.userName ?? "Anonymous",
-        handle: r.userName ?? "user",
+        handle: r.userHandle ?? r.userName ?? "user",
         avatar: r.userImage,
       },
       tools: (r.tools ?? []) as { name: string; category: string }[],
       upvoteCount: r.upvoteCount,
-      commentCount: 0,
+      commentCount: r.commentCount,
       screenshotUrl: r.screenshotUrl,
       createdAt: r.createdAt.toISOString(),
     }));
 
-    return NextResponse.json(mapped);
+    const totalPages = Math.ceil(total / limit);
+    return NextResponse.json({
+      data: mapped,
+      pagination: { page, limit, total, totalPages },
+    });
   } catch (err) {
     console.error("Failed to fetch configs:", err);
     return NextResponse.json(

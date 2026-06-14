@@ -5,6 +5,7 @@ import {
   integer,
   jsonb,
   primaryKey,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 /* ─── Auth.js Adapter Tables ────────────────────────────────── */
@@ -13,6 +14,8 @@ import {
 export const users = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name"),
+  handle: text("handle").notNull().unique(),
+  bio: text("bio"),
   email: text("email").notNull(),
   emailVerified: timestamp("emailVerified", { mode: "date" }),
   image: text("image"),
@@ -81,7 +84,7 @@ export const configs = pgTable("configs", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-});
+}, (t) => [uniqueIndex("repo_url_idx").on(t.repoUrl)]);
 
 /* ─── Upvotes ───────────────────────────────────────────────── */
 
